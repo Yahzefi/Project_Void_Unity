@@ -8,6 +8,7 @@ public class MenuManager : MonoBehaviour
 {
     public GameObject PlayerMenu; // main/container menu
     public GameObject SubMenuPrefab;
+    public MenuItem[] MenuItems;
 
     private GameObject PlayerSubMenu;
     private GameObject SubMenuContents;
@@ -21,6 +22,14 @@ public class MenuManager : MonoBehaviour
     {
         // on start: set menu objects to inactive
         PlayerMenu.SetActive(false);
+        foreach (MenuItem item in MenuItems)
+        {
+            Debug.Log($"Menu Item #{item.number}:" +
+                $" | Item Container: {item.itemContainer.name}" +
+                $" | Item Name: {item.itemName.name}" +
+                $" | Item Count: {item.itemCount.name}"
+            );
+        }
     }
 
     // Update is called once per frame
