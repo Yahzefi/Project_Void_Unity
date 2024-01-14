@@ -9,5 +9,6 @@ public class MenuItem : ScriptableObject
     public GameObject itemContainer;
     public GameObject itemName;
     public GameObject itemCount;
-    
+
+    public bool slotIsInactive;
 }

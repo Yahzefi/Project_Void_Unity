@@ -7,29 +7,24 @@ using UnityEngine.UI;
 public class MenuManager : MonoBehaviour
 {
     public GameObject PlayerMenu; // main/container menu
-    public GameObject SubMenuPrefab;
-    public MenuItem[] MenuItems;
 
-    private GameObject PlayerSubMenu;
-    private GameObject SubMenuContents;
+    public GameObject SubMenuPrefab; // submenu prefab
+    public GameObject MenuItemsContainerPrefab; // items container prefab
+    public MenuItem[] MenuItems; // item prefab array/collection
+
+    private GameObject PlayerSubMenu; // local ref to submenu (child of "PlayerMenu")
+    private GameObject SubMenuContents; // local ref to "PlayerSubMenu" child (built into "SubMenuPrefab")
+    private GameObject PlayerItems; // local ref to inventory items container (child of "SubMenuContents")
+    private GameObject ItemContainer; // local ref used for each item/child within "PlayerItems"
 
     private ColorBlock btnColors; // variable for updating various colors via script
 
-    private bool subMenuIsInstantiated;
+    private bool subMenuIsInstantiated; // used to determine how/when to add/remove child components from submenu
 
     // Start is called before the first frame update
     void Start()
     {
-        // on start: set menu objects to inactive
-        PlayerMenu.SetActive(false);
-        foreach (MenuItem item in MenuItems)
-        {
-            Debug.Log($"Menu Item #{item.number}:" +
-                $" | Item Container: {item.itemContainer.name}" +
-                $" | Item Name: {item.itemName.name}" +
-                $" | Item Count: {item.itemCount.name}"
-            );
-        }
+        PlayerMenu.SetActive(false); // on start: set menu objects to inactive
     }
 
     // Update is called once per frame
@@ -42,8 +37,13 @@ public class MenuManager : MonoBehaviour
     {
 
         EventSystem.current.SetSelectedGameObject(null); // resets btn selection status
-
-        PlayerMenu.SetActive(!PlayerMenu.activeInHierarchy);
+        // if menu is toggled and a submenu is currently open: destroy it & update corresponding status bool
+        if (PlayerSubMenu != null)
+        {
+            Destroy(PlayerSubMenu);
+            subMenuIsInstantiated = false;
+        }
+        PlayerMenu.SetActive(!PlayerMenu.activeInHierarchy); // toggle menu active status
     }
 
     public void ToggleSubMenu (Button btn)
@@ -51,9 +51,9 @@ public class MenuManager : MonoBehaviour
         if (subMenuIsInstantiated)
         {
             // if the previously instantiated submenu matches the current selection:
-                // -> reset the selection status 
-                // -> destroy exisiting submenu & update corresponding status bool 
-                // -> return (avoid new submenu instantiation
+                // -> [1] reset the selection status 
+                // -> [2] destroy exisiting submenu & update corresponding status bool 
+                // -> [3] return (avoid new submenu instantiation
             if (PlayerSubMenu.name == btn.name)
             {
                 EventSystem.current.SetSelectedGameObject(null);
@@ -71,13 +71,43 @@ public class MenuManager : MonoBehaviour
         PlayerSubMenu.name = btn.name; // change default "clone" name to match selected button's name
 
         subMenuIsInstantiated = true; // update corresponding status bool
-
-        SubMenuContents = PlayerSubMenu.transform.GetChild(0).gameObject; // set to submenu's child gameObject
+        
+        SubMenuContents = PlayerSubMenu.transform.GetChild(0).gameObject;
 
         switch (PlayerSubMenu.name)
         {
             case "Inventory":
-                // instantiate contents material as child to SubMenuContents gameObject
+                // if the submenu requested is "Inventory":
+                    // -> [1] instantiate the items container as a child of the "SubMenuContents" gameObject
+                    /* -> [2] set "PlayerItems" to the newly instantiated gameObject (items container clone) & update its data 
+                    (name, color, etc.) */
+                Instantiate(MenuItemsContainerPrefab, SubMenuContents.transform);
+                PlayerItems = SubMenuContents.transform.GetChild(0).gameObject;
+                PlayerItems.name = "PlayerItems";
+
+                SubMenuContents.GetComponent<Image>().color = Color.red;
+                
+                // for each of the items ("MenuItems" component on "PlayerMenu"(this)):
+                    // -> [1] instantiate an item container as a child of the "PlayerItems" (items container) gameObject
+                    /* -> [2] set "ItemContainer" to the newly instantiated gameObject (item container clone) & update its name 
+                    [[NOTE]]: {item.number}'s starting value == 1 :: get the child of {item.number - 1} to match with correct index */
+                    /* -> [3] instantiate the "itemName" & "itemCount" gameObjects as children of the "ItemContainer" gameObject 
+                    & update both of their names */
+                    // -> [4]
+                foreach (MenuItem item in MenuItems)
+                {
+                    Instantiate(item.itemContainer, PlayerItems.transform);
+                    ItemContainer = PlayerItems.transform.GetChild(item.number - 1).gameObject;
+                    ItemContainer.name = item.itemContainer.name;
+                    Instantiate(item.itemName, ItemContainer.transform);
+                    Instantiate(item.itemCount, ItemContainer.transform);
+                    ItemContainer.transform.GetChild(0).gameObject.name = item.itemName.name;
+                    ItemContainer.transform.GetChild(1).gameObject.name = item.itemCount.name;
+
+                    // check active bool and set active status accordingly
+                    if (item.slotIsInactive) ItemContainer.SetActive(false);
+                }
+
                 break;
             case "Profile":
                 // instantiate contents material as child to SubMenuContents gameObject
