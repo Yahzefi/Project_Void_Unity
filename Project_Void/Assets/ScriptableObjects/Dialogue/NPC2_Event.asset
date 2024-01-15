@@ -46,4 +46,4 @@ MonoBehaviour:
     - 'This is ended dialogue for the second event
 
       ??? is speaking'
-  hasEnded: 1
+  hasEnded: 0

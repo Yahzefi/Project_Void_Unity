@@ -3,6 +3,13 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
+//textBoxRec.offsetMin --> x (left), y (bottom) [+]
+//textBoxRec.offsetMax --> x (right), y (top) [-]
+
+//RectTransform textBoxRec = textBox.GetComponent<RectTransform>();
+//Debug.Log(textBoxRec.offsetMin);
+//Debug.Log(textBoxRec.offsetMax);
+
 public class DialogueManager : MonoBehaviour
 {
     // LOGIC COMPONENTS
@@ -14,14 +21,16 @@ public class DialogueManager : MonoBehaviour
     //
 
     // VISUAL COMPONENTS
-    public GameObject dialogueBox;
-    public GameObject textBox;
-    public GameObject speakerBox;
-    public Image imageOutline;
-    public Image characterImage;
-    public Text speakerText;
-    public Text dialogueText;
-    public Image nextPrompt;
+    public DialogueUI dialogueUI;
+
+    private GameObject dialogueContainer;
+    private GameObject textBox;
+    private GameObject speakerBox;
+    private Image imageOutline;
+    private Image characterImage;
+    private Image nextPrompt;
+    private Text speakerText;
+    private Text dialogueText;
 
     private Animator animator;
 
@@ -29,10 +38,10 @@ public class DialogueManager : MonoBehaviour
         // SERIALIZED VARIABLES
     //
         // HIDDEN PUBLIC VARIABLES
-    [HideInInspector] public int currentNumber; // for cycling through lines
     [HideInInspector] public bool isRunning; // determines whether StartDialogue() or NextLine() is called
-    [HideInInspector] public bool isAnimating; // spam (mashing space/interact) guard
     // PRIVATE VARIABLES
+    private int currentNumber; // for cycling through lines
+    private bool isAnimating; // spam (mashing space/interact) guard
     private bool triggerisDetected;
     private bool isTyping;
     private bool isFlashing;
@@ -41,21 +50,14 @@ public class DialogueManager : MonoBehaviour
 
     private void Start()
     {
-        animator = dialogueBox.GetComponent<Animator>();
-        imageOutline.enabled = false;
-        characterImage.enabled = false;
-        speakerBox.SetActive(false);
-        textBox.SetActive(false);
-        dialogueBox.SetActive(false);
-        // instantiate queue
-        conversation = new Queue<string>();
+        //
     }
 
     private void Update()
     {
-        if (Input.GetKeyDown(KeyCode.Space) && triggerisDetected)
+        if (Input.GetKeyDown(KeyCode.Space) && triggerisDetected) // if the interact key is pressed & player is within trigger area
         {
-            // if the input type is interact & the dialogue manager isn't currently animating anything:
+            // if the dialogue manager is currently animating anything: return
             if (isAnimating) return;
             // if the dialogue manager isn't running: start it | otherwise: proceed to next line OR skip text
             if (!isRunning) StartDialogue();
@@ -65,6 +67,18 @@ public class DialogueManager : MonoBehaviour
 
     public void StartDialogue()
     {
+        if (!dialogueUI.isInstantiated) InstantiateDialogueUI();
+
+        animator = dialogueContainer.GetComponent<Animator>();
+
+        imageOutline.enabled = false;
+        characterImage.enabled = false;
+        speakerBox.SetActive(false);
+        textBox.SetActive(false);
+        dialogueContainer.SetActive(false);
+
+        conversation ??= new Queue<string>(); // instantiate queue
+
         // clear fields/values
         currentNumber = 0;
         speakerText.text = "";
@@ -83,7 +97,9 @@ public class DialogueManager : MonoBehaviour
     {
         Dialogue dialogue = dialogueEvent.hasEnded ? dialogueEvent.endedDialogue[currentNumber] : dialogueEvent.dialogue[currentNumber];
 
-        // if dialogue event has reached the final line: end event
+        // if dialogue event has reached the final line:
+            // -> [1] increment "currentNumber" count
+            // -> [2] call "EndDialogue()" (either proceeds to next section of dialogue or ends event)
         if (conversation.Count == 0)
         {
             currentNumber++;
@@ -91,6 +107,8 @@ public class DialogueManager : MonoBehaviour
             return;
         }
 
+        // if text is already typing: "line" will be set to the next string in queue (because the remaining text (that was typing) will be fully displayed)
+        // otherwise: "line" will be set to the string in the queue's current position
         string line = isTyping ? conversation.Dequeue() : conversation.Peek();
 
         // if text is typing: stop the typing text coroutine and display the remaining text
@@ -119,15 +137,6 @@ public class DialogueManager : MonoBehaviour
             speakerText.color = new Color(dialogue.textColor.r, dialogue.textColor.g, dialogue.textColor.b);
             characterImage.sprite = dialogue.characterImage;
 
-            //textBoxRec.offsetMin --> x (left), y (bottom) [+]
-            //textBoxRec.offsetMax --> x (right), y (top) [-]
-
-            //RectTransform textBoxRec = textBox.GetComponent<RectTransform>();
-            //Debug.Log(textBoxRec.offsetMin);
-            //Debug.Log(textBoxRec.offsetMax);
-
-            //textBoxRec.offsetMin = new Vector2(characterImage.sprite == null ? 25.0f : 162.475f, textBoxRec.offsetMin.y); // 25 --> no character image | 162.475 --> character image inserted
-
             StartCoroutine(TypeText(line)); // start typing text
         }
     }
@@ -137,10 +146,13 @@ public class DialogueManager : MonoBehaviour
 
         Dialogue[] dialogues = dialogueEvent.hasEnded ? dialogueEvent.endedDialogue : dialogueEvent.dialogue;
 
+        // clear fields/values
         speakerText.text = "";
         dialogueText.text = "";
         conversation.Clear();
 
+        // if the "currentNumber" value is LESS THAN the amount of events/speakers: refill the queue with new strings
+        // otherwise("currentNumber" == length): end the dialogue event & close the dialogue box 
         if (currentNumber < dialogues.Length)
         {
             foreach (string line in dialogues[currentNumber].lines) conversation.Enqueue(line);
@@ -157,35 +169,87 @@ public class DialogueManager : MonoBehaviour
 
     }
 
+    private void InstantiateDialogueUI ()
+    {
+        GameObject GameUI = GameObject.Find("GameUI");
+
+        // instantiate, define local ref & rename clone for: "dialogueContainer", "characterImage", "imageOutline", "nextPrompt", "speakerBox" & "textBox"
+        // define local ref & rename: "speakerText"(child of "speakerBox") & "dialogueText"(child of "textBox")
+        // update dialogue UI status bool
+        Instantiate(dialogueUI.dialogueContainer, GameUI.transform);
+        dialogueContainer = GameUI.transform.Find($"{dialogueUI.dialogueContainer.name}(Clone)").gameObject;
+        dialogueContainer.name = dialogueUI.dialogueContainer.name;
+        Instantiate(dialogueUI.characterImage, dialogueContainer.transform);
+        characterImage = dialogueContainer.transform.Find($"{dialogueUI.characterImage.name}(Clone)").GetComponent<Image>();
+        characterImage.name = dialogueUI.characterImage.name;
+        Instantiate(dialogueUI.imageOutline, dialogueContainer.transform);
+        imageOutline = dialogueContainer.transform.Find($"{dialogueUI.imageOutline.name}(Clone)").GetComponent<Image>();
+        imageOutline.name = dialogueUI.imageOutline.name;
+        Instantiate(dialogueUI.nextPrompt, dialogueContainer.transform);
+        nextPrompt = dialogueContainer.transform.Find($"{dialogueUI.nextPrompt.name}(Clone)").GetComponent<Image>();
+        nextPrompt.name = dialogueUI.nextPrompt.name;
+        Instantiate(dialogueUI.speakerBox, dialogueContainer.transform);
+        speakerBox = dialogueContainer.transform.Find($"{dialogueUI.speakerBox.name}(Clone)").gameObject;
+        speakerBox.name = dialogueUI.speakerBox.name;
+        speakerText = speakerBox.transform.GetChild(0).GetComponent<Text>();
+        speakerText.name = "SpeakerText";
+        Instantiate(dialogueUI.textBox, dialogueContainer.transform);
+        textBox = dialogueContainer.transform.Find($"{dialogueUI.textBox.name}(Clone)").gameObject;
+        textBox.name = dialogueUI.textBox.name;
+        dialogueText = textBox.transform.GetChild(0).GetComponent<Text>();
+        dialogueText.name = "DialogueText";
+
+        dialogueUI.isInstantiated = true;
+    }
+
     IEnumerator Animate (string type)
     {
-        isAnimating = true;
+        isAnimating = true; // prevents other coroutines from running until animation has finished (SEE: "this.Update()" & "PlayerEvent.Init_PlayerMovement")
 
         switch (type)
         {
             case "OPEN":
-                yield return new WaitUntil(() => !dialogueBox.activeInHierarchy);
-                dialogueBox.SetActive(true);
+                // after confirming the dialogue box isn't already open/active:
+                // -> [1] enable/display the "dialogueContainer" & "imageOutline"
+                // -> [2] update animator's "isOpen" bool as true (starts open animation) & wait "x" seconds
+                // -> [3] once animation has finished: enable/display the "speakerBox", "textBox", "nextPrompt" & "characterImage"
+                // -> [4] update "isAnimating" bool as false (allows previously blocked inputs/actions)
+                yield return new WaitUntil(() => !dialogueContainer.activeInHierarchy);
+                dialogueContainer.SetActive(true);
                 imageOutline.enabled = true;
+
                 animator.SetBool("isOpen", true);
                 yield return new WaitForSeconds(0.5f);
+
                 speakerBox.SetActive(true);
                 textBox.SetActive(true);
                 nextPrompt.enabled = true;
                 characterImage.enabled = true;
+
                 isAnimating = false;
                 break;
             case "CLOSE":
-                yield return new WaitUntil(() => dialogueBox.activeInHierarchy);
+                // after confirming the dialogue box is currently open/active:
+                // -> [1] disable/hide "nextPrompt", "characterImage", "imageOutline", "speakerBox" & "textBox"
+                // -> [2] update animator's "isOpen" bool as false (starts close animation) & wait for "x" seconds
+                /* -> [3] once animation has finished: disable/hide "dialogueContainer" & update "isAnimating" bool 
+                as false (allows previously blocked inputs/actions) */
+                // -> [4] remove the dialogue box UI from scene & update corresponding status bool
+                yield return new WaitUntil(() => dialogueContainer.activeInHierarchy);
                 nextPrompt.enabled = false;
                 characterImage.enabled = false;
                 imageOutline.enabled = false;
                 speakerBox.SetActive(false);
                 textBox.SetActive(false);
+
                 animator.SetBool("isOpen", false);
                 yield return new WaitForSeconds(0.5f);
-                dialogueBox.SetActive(false);
+
+                dialogueContainer.SetActive(false);
                 isAnimating = false;
+
+                Destroy(dialogueContainer);
+                dialogueUI.isInstantiated = false;
                 break;
             default:
                 break;

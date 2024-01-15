@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 992b9617173110547966a370833c4212, type: 3}
+  m_Name: DialogueUI
+  m_EditorClassIdentifier: 
+  dialogueContainer: {fileID: 5350337430586854068, guid: 67150996ce870864a9e29d5c1761e5be, type: 3}
+  textBox: {fileID: 149792193772371342, guid: 820ff42717270f145b6be7bc9bf857a6, type: 3}
+  speakerBox: {fileID: 8166319029342060854, guid: 32d7b8552a33d664e9757dd85e34b56b, type: 3}
+  nextPrompt: {fileID: 3421049730197326490, guid: e995fc84ed25f3343a61f17ae50593b5, type: 3}
+  imageOutline: {fileID: 5403587428999435040, guid: 8eba827edcad73e4cb4223c26ea42dd3, type: 3}
+  characterImage: {fileID: 4879762428896002404, guid: 3b92231bb73d5294f9ab1364afd41b61, type: 3}
+  isInstantiated: 0
