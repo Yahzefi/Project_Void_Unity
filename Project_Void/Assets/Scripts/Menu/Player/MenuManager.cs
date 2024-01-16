@@ -1,5 +1,7 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -9,13 +11,8 @@ public class MenuManager : MonoBehaviour
     public PlayerMenu PlayerMenu; // gameObject/UI prefabs
     public MenuItem[] MenuItems; // item prefab array/collection
 
-    // PlayerMenu (Prefabs)
-    private GameObject playerMenuContainer; // prefab for main/primary container
-    private GameObject playerMenuBox; // prefab container that holds menu buttons
-    private GameObject playerSubMenuContainer; // prefab container for submenu
-    private GameObject playerItemsContainer; // prefab container for inventory submenu items
     // PlayerMenu (Instantiated Objects)
-    private GameObject menuContainer; // local ref for main/primary container (child of "this")
+    private GameObject menuContainer; // local ref for main/primary container (child of "GameUI")
     private GameObject menuBox; // local ref for container that holds menu buttons (child of "menuContainer")
     private GameObject subMenuContainer; // local ref for submenu container (child of "menuContainer")
     private GameObject subMenuContents; // local ref to submenu contents (child of "subMenuContainer")
@@ -29,7 +26,7 @@ public class MenuManager : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        //Debug.Log(playerMenuContainer.name);
+        //
     }
 
     // Update is called once per frame
@@ -40,42 +37,58 @@ public class MenuManager : MonoBehaviour
 
     private void ToggleMenu ()
     {
-        playerMenuContainer = PlayerMenu.PlayerMenuContainer;
-        playerMenuBox = PlayerMenu.PlayerMenuBox;
-        playerSubMenuContainer = PlayerMenu.PlayerSubMenuContainer;
-        playerItemsContainer = PlayerMenu.PlayerItemsContainer;
+        GameObject GameUI = GameObject.Find("GameUI"); // define canvas/UI gameObject
 
+        // if the menu container hasn't yet been instantiated:
+        // -> [1] instantiate it as a child of "GameUI" | def local ref as newly instantiated object | rename menu container
+        // -> [2] instantiate menu box (holds buttons) as child of "menuContainer" | def local ref | rename menu box
+        // -> [3] update "menuIsInstantiated" status bool
         if (!PlayerMenu.menuIsInstantiated)
         {
-            Instantiate(playerMenuContainer, this.transform);
-            menuContainer = this.transform.Find($"{playerMenuContainer.name}(Clone)").gameObject;
-            menuContainer.name = playerMenuContainer.name;
-            Instantiate(playerMenuBox, menuContainer.transform);
-            menuBox = menuContainer.transform.Find($"{playerMenuBox.name}(Clone)").gameObject;
-            menuBox.name = playerMenuBox.name;
+            Instantiate(PlayerMenu.PlayerMenuContainer, GameUI.transform);
+            menuContainer = GameUI.transform.Find($"{PlayerMenu.PlayerMenuContainer.name}(Clone)").gameObject;
+            menuContainer.name = PlayerMenu.PlayerMenuContainer.name;
+            Instantiate(PlayerMenu.PlayerMenuBox, menuContainer.transform);
+            menuBox = menuContainer.transform.Find($"{PlayerMenu.PlayerMenuBox.name}(Clone)").gameObject;
+            menuBox.name = PlayerMenu.PlayerMenuBox.name;
 
+            PlayerMenu.menuIsInstantiated = true;
         }
-        
-
-        EventSystem.current.SetSelectedGameObject(null); // resets btn selection status
-        // if menu is toggled and a submenu is currently open: destroy it & update corresponding status bool
-        if (subMenuContainer != null)
+        // if the menu container is already instantiated:
+        // -> [1] redefine menu container local ref (after renaming)
+        // -> [2] if the submenu is also already instantiated: def local ref "subMenuContainer"
+            // -> [2a] if the submenu container isn't null: remove the submenu container & update the "subMenuIsInstantiated" status bool
+        // -> [3] remove the menu container & update the "menuIsInstantiated" status bool
+        else
         {
-            Destroy(subMenuContainer);
-            PlayerMenu.subMenuIsInstantiated = false;
+            menuContainer = GameUI.transform.Find($"{PlayerMenu.PlayerMenuContainer.name}").gameObject;
+            if (PlayerMenu.subMenuIsInstantiated) subMenuContainer = menuContainer.transform.Find($"{PlayerMenu.PlayerSubMenuContainer.name}").gameObject;
+            if (subMenuContainer != null)
+            {
+                Destroy(subMenuContainer);
+                PlayerMenu.subMenuIsInstantiated = false;
+            }
+            Destroy(menuContainer);
+            PlayerMenu.menuIsInstantiated = false;
         }
-        menuContainer.SetActive(!menuContainer.activeInHierarchy); // toggle menu active status
+        EventSystem.current.SetSelectedGameObject(null); // resets btn selection status      
     }
 
     public void ToggleSubMenu (Button btn)
     {
+        GameObject GameUI = GameObject.Find("GameUI"); // def canvas/UI gameObject
+        menuContainer = GameUI.transform.Find($"{PlayerMenu.PlayerMenuContainer.name}").gameObject; // def local ref (child of "GameUI")
+
         if (PlayerMenu.subMenuIsInstantiated)
         {
+            // redefine refs to submenu gameObjects (after they've been renamed)
+            subMenuContainer = menuContainer.transform.Find($"{PlayerMenu.PlayerSubMenuContainer.name}").gameObject;
+            subMenuContents = subMenuContainer.transform.GetChild(0).gameObject;
             // if the previously instantiated submenu matches the current selection:
                 // -> [1] reset the selection status 
                 // -> [2] destroy exisiting submenu & update corresponding status bool 
-                // -> [3] return (avoid new submenu instantiation
-            if (subMenuContainer.name == btn.name)
+                // -> [3] return (avoid new submenu instantiation)
+            if (subMenuContents.name == btn.name)
             {
                 EventSystem.current.SetSelectedGameObject(null);
                 Destroy(subMenuContainer);
@@ -87,28 +100,29 @@ public class MenuManager : MonoBehaviour
             PlayerMenu.subMenuIsInstantiated = false;
         }
 
-        Instantiate(playerSubMenuContainer, menuContainer.transform); // instantiate new submenu as child to "menuContainer" gameObject
-        subMenuContainer = menuContainer.transform.Find("PlayerSubMenu(Clone)").gameObject; // set to newly instantiated submenu
-        subMenuContainer.name = btn.name; // change default "clone" name to match selected button's name
+        Instantiate(PlayerMenu.PlayerSubMenuContainer, menuContainer.transform); // instantiate new submenu as child to "menuContainer" gameObject
+        subMenuContainer = menuContainer.transform.Find($"{PlayerMenu.PlayerSubMenuContainer.name}(Clone)").gameObject; // set to newly instantiated submenu
+        subMenuContainer.name = PlayerMenu.PlayerSubMenuContainer.name;
 
         PlayerMenu.subMenuIsInstantiated = true; // update corresponding status bool
         
         subMenuContents = subMenuContainer.transform.GetChild(0).gameObject;
+        subMenuContents.name = btn.name; // rename submenu contents for future ref (above)
 
-        switch (subMenuContainer.name)
+        switch (btn.name)
         {
             case "Inventory":
                 // if the submenu requested is "Inventory":
                     // -> [1] instantiate the items container as a child of the "subMenuContents" gameObject
                     /* -> [2] set "PlayerItems" to the newly instantiated gameObject (items container clone) & update its data 
                     (name, color, etc.) */
-                Instantiate(playerItemsContainer, subMenuContents.transform);
+                Instantiate(PlayerMenu.PlayerItemsContainer, subMenuContents.transform);
                 playerItems = subMenuContents.transform.GetChild(0).gameObject;
                 playerItems.name = "PlayerItems";
 
                 subMenuContents.GetComponent<Image>().color = Color.red;
                 
-                // for each of the items ("MenuItems" component on "this"):
+                // for each of the items ("MenuItems" component on "GameUI"):
                     // -> [1] instantiate an item container as a child of the "playerItems" (items container) gameObject
                     /* -> [2] set "itemContainer" to the newly instantiated gameObject (item container clone) & update its name 
                     [[NOTE]]: {item.number}'s starting value == 1 :: get the child of {item.number - 1} to match with correct index */
